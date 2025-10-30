@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "todo-app"
+name = "app"
 version = "0.1.0"
 description = ""
 authors = ["billsusanto <billsusanto01@gmail.com>"]
-package-mode = false
+package-mode = true
+
+[tool.poetry.scripts]
+server = "app.cli:server"
 
 [tool.poetry.dependencies]
 python = "^3.10"
