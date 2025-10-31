@@ -1,33 +1,17 @@
 from fastapi import WebSocket, APIRouter, WebSocketDisconnect, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from typing import Optional, List
+from typing import List
 
 from app.utils.logger import logger
 from app.database import async_session, get_session
 from app.models import Conversation, Message, ConversationRead, MessageRead, MessageRoleEnum
+from app.services.connection_manager import manager
 
 router = APIRouter(
     prefix="/chatbot",
     tags=["chatbot"]
 )
-
-class ConnectionManager:
-    """Manages WebSocket connections and their conversation state"""
-    def __init__(self):
-        self.active_connections: dict[WebSocket, Optional[int]] = {}
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections[websocket] = None
-        logger.info("WebSocket connected")
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            del self.active_connections[websocket]
-        logger.info("WebSocket disconnected")
-
-manager = ConnectionManager()
 
 @router.websocket("/ws/chat")
 async def websocket_chat_endpoint(websocket: WebSocket):
