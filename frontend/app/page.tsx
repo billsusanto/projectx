@@ -1,27 +1,39 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import TodoList from '@/components/todos/TodoList';
-import TodoForm from '@/components/todos/TodoForm';
+import ChatInterface from '@/components/chat/ChatInterface';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { motion } from 'framer-motion';
 
-const Home = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleTodoCreated = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
-
+export default function ChatPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">Todo App</h1>
+    <main className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Floating Theme Toggle */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, delay: 0.2 }}
+        className="fixed left-6 top-6 z-50"
+      >
+        <ThemeToggle />
+      </motion.div>
 
-      <div className="mb-8">
-        <TodoForm onTodoCreated={handleTodoCreated} />
+      {/* Main Content */}
+      <div className="h-screen overflow-hidden p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto h-full max-w-6xl"
+        >
+          <ChatInterface />
+        </motion.div>
       </div>
 
-      <TodoList key={refreshKey} />
-    </div>
+      {/* Decorative Background Elements */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-1/4 top-0 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="absolute -right-1/4 bottom-0 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
+      </div>
+    </main>
   );
-};
-
-export default Home;
+}
