@@ -2,6 +2,8 @@ from fastapi import WebSocket, APIRouter, WebSocketDisconnect, Depends, HTTPExce
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from typing import List
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.messages import ModelRequest, ModelResponse, UserPromptPart, TextPart, ModelMessage
 
 from app.utils.logger import logger
 from app.database import async_session, get_session
@@ -9,12 +11,12 @@ from app.models import Conversation, Message, ConversationRead, MessageRead, Mes
 from app.services.connection_manager import manager
 
 router = APIRouter(
-    prefix="/chatbot",
-    tags=["chatbot"]
+    prefix="/messaging",
+    tags=["messaging"]
 )
 
-@router.websocket("/ws/chat")
-async def websocket_chat_endpoint(websocket: WebSocket):
+@router.websocket("/ws")
+async def websocket_messaging_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
 
     async with async_session() as session:
@@ -33,7 +35,7 @@ async def websocket_chat_endpoint(websocket: WebSocket):
 
                     # Auto-create conversation on first message
                     if not conversation_id:
-                        new_conversation = Conversation(title="New Chat")
+                        new_conversation = Conversation(title="New Conversation")
                         session.add(new_conversation)
                         await session.commit()
                         await session.refresh(new_conversation)
@@ -46,6 +48,12 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                             "type": "conversation_created",
                             "conversation_id": conversation_id
                         })
+
+                    messagingAgent = Agent(
+                        'anthropic:claude-sonnet-4-5',
+                        output_type=str,
+                        system_prompt='You are AgentX, part of ProjectX, a single agent and project that can handle anything the user requests.',
+                    )
 
                     # Verify conversation exists
                     conversation = await session.get(Conversation, conversation_id)
@@ -75,29 +83,29 @@ async def websocket_chat_endpoint(websocket: WebSocket):
                         "created_at": user_message.created_at.isoformat()
                     })
 
-                    # Generate assistant response - change to pydantic ai later
-                    assistant_response = f"You said: {content}"
+                    # Generate agent response
+                    agent_response = await messagingAgent.run(content)
 
-                    # Save assistant message
-                    assistant_message = Message(
-                        content=assistant_response,
-                        role=MessageRoleEnum.ASSISTANT,
+                    # Save agent message
+                    agent_message = Message(
+                        content=agent_response.output,
+                        role=MessageRoleEnum.AGENT,
                         conversation_id=conversation_id
                     )
-                    session.add(assistant_message)
+                    session.add(agent_message)
                     await session.commit()
-                    await session.refresh(assistant_message)
+                    await session.refresh(agent_message)
 
-                    logger.info(f"Saved assistant message: {assistant_message.content}")
+                    logger.info(f"Agent response: {agent_response.all_messages()}")
 
-                    # Send assistant message
+                    # Send agent message
                     await websocket.send_json({
                         "type": "message",
-                        "id": assistant_message.id,
-                        "content": assistant_message.content,
-                        "role": "assistant",
+                        "id": agent_message.id,
+                        "content": agent_message.content,
+                        "role": "agent",
                         "conversation_id": conversation_id,
-                        "created_at": assistant_message.created_at.isoformat()
+                        "created_at": agent_message.created_at.isoformat()
                     })
 
         except WebSocketDisconnect:

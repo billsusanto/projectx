@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
 from sqlmodel import SQLModel
-from app.models import Todo, Conversation, Message  # Import your models!
+from app.models import Conversation, Message  # Import your models!
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

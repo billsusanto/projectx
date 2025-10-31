@@ -7,8 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 from app.utils.logger import logger
-from app.routes.todos import router as todos_router
-from app.routes.chatbot import router as chatbot_router
+from app.routes.messaging import router as messaging_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,8 +27,7 @@ app.add_middleware(
 
 logger.instrument_fastapi(app)
 
-app.include_router(todos_router)
-app.include_router(chatbot_router)
+app.include_router(messaging_router)
 
 @app.get("/health")
 def read_root():

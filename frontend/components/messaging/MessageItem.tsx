@@ -1,13 +1,13 @@
 "use client";
 
-import { ChatMessage } from '@/types/chat';
+import { Message } from '@/types/messaging';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MessageItemProps {
-  message: ChatMessage;
+  message: Message;
 }
 
 export default function MessageItem({ message }: MessageItemProps) {

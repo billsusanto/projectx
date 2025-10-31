@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { ConnectionStatus, SendMessagePayload } from '@/types/chat';
+import { ConnectionStatus, SendMessagePayload } from '@/types/messaging';
 
 interface UseWebSocketOptions {
   onMessage?: (event: MessageEvent) => void;
@@ -30,7 +30,7 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketReturn 
   useEffect(() => {
     const connect = () => {
       try {
-        const wsUrl = 'ws://localhost:8000/chatbot/ws/chat';
+        const wsUrl = 'ws://localhost:8000/messaging/ws';
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 

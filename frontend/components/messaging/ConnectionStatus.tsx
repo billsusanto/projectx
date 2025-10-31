@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectionStatus as ConnectionStatusEnum } from '@/types/chat';
+import { ConnectionStatus as ConnectionStatusEnum } from '@/types/messaging';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wifi, WifiOff, Loader2, AlertCircle } from 'lucide-react';

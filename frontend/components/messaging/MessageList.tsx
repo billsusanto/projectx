@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChatMessage } from '@/types/chat';
+import { Message } from '@/types/messaging';
 import MessageItem from './MessageItem';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, MessageSquare, Sparkles } from 'lucide-react';
 
 interface MessageListProps {
-  messages: ChatMessage[];
+  messages: Message[];
 }
 
 export default function MessageList({ messages }: MessageListProps) {
@@ -60,7 +60,7 @@ export default function MessageList({ messages }: MessageListProps) {
           <h3 className="text-2xl font-bold text-foreground">Start a conversation</h3>
           <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4" />
-            Type a message below to begin chatting with the AI assistant
+            Type a message below to begin conversing with the AI agent
           </p>
         </motion.div>
       </div>
@@ -76,7 +76,7 @@ export default function MessageList({ messages }: MessageListProps) {
         role="log"
         aria-live="polite"
         aria-atomic="false"
-        aria-label="Chat messages"
+        aria-label="Messages"
       >
         <div className="mx-auto max-w-4xl space-y-6">
           {messages.map((message) => (

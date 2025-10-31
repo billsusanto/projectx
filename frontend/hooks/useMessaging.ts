@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useWebSocket } from './useWebsocket';
-import { ChatMessage, WebSocketMessage, ConnectionStatus } from '@/types/chat';
+import { Message, WebSocketMessage, ConnectionStatus } from '@/types/messaging';
 
-interface UseChatReturn {
-  messages: ChatMessage[];
+interface UseMessagingReturn {
+  messages: Message[];
   conversationId: number | null;
   sendMessage: (content: string) => void;
   isLoading: boolean;
@@ -11,8 +11,8 @@ interface UseChatReturn {
   error: Error | null;
 }
 
-export function useChat(): UseChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function useMessaging(): UseMessagingReturn {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,7 +28,7 @@ export function useChat(): UseChatReturn {
 
         case 'message':
           console.log('Received message:', data);
-          const newMessage: ChatMessage = {
+          const newMessage: Message = {
             id: data.id,
             content: data.content,
             role: data.role,
@@ -42,8 +42,8 @@ export function useChat(): UseChatReturn {
             return [...prev, newMessage];
           });
 
-          // If assistant message, stop loading
-          if (data.role === 'assistant') {
+          // If agent message, stop loading
+          if (data.role === 'agent') {
             setIsLoading(false);
           }
           break;

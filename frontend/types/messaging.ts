@@ -1,7 +1,7 @@
 import type { components } from './types';
 
-export type Message = components['schemas']['MessageRead'];
-export type Conversation = components['schemas']['ConversationRead'];
+export type MessageRead = components['schemas']['MessageRead'];
+export type ConversationRead = components['schemas']['ConversationRead'];
 export type MessageRole = components['schemas']['MessageRoleEnum'];
 
 export enum ConnectionStatus {
@@ -20,7 +20,7 @@ export interface SendMessagePayload {
     conversation_id?: number;
 }
 
-export interface ChatMessage {
+export interface Message {
     id: number | string;
     content: string;
     role: MessageRole;

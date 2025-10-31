@@ -5,11 +5,11 @@ from enum import Enum
 from sqlalchemy import Column, DateTime, func
 
 class MessageRoleEnum(str, Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
+    USER = "USER"
+    AGENT = "AGENT"
 
 class ConversationBase(SQLModel):
-    title: str = Field(max_length=200, default="New Chat")
+    title: str = Field(max_length=200, default="New Conversation")
 
 class Conversation(ConversationBase, table=True):
     __tablename__ = "conversations"
@@ -36,7 +36,7 @@ class ConversationRead(ConversationBase):
     message_count: Optional[int] = None
 
 class MessageBase(SQLModel):
-    content: str = Field(min_length=1, max_length=5000)
+    content: str = Field(min_length=1, max_length=25_000)
     role: MessageRoleEnum
     conversation_id: int = Field(foreign_key="conversations.id")
 
@@ -52,7 +52,7 @@ class Message(MessageBase, table=True):
     conversation: Optional[Conversation] = Relationship(back_populates="messages")
 
 class MessageCreate(SQLModel):
-    content: str = Field(min_length=1, max_length=5000)
+    content: str = Field(min_length=1, max_length=25_000)
     conversation_id: Optional[int] = None
 
 class MessageRead(MessageBase):
