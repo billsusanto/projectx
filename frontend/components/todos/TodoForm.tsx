@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { createTodo } from '@/lib/api';
-import type { components } from '@/types/api';
+import type { components } from '@/types/types';
 
 type TodoCreate = components['schemas']['TodoCreate'];
 type PriorityEnum = components['schemas']['PriorityEnum'];

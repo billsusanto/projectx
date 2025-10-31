@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { updateTodo } from '@/lib/api';
-import type { components } from '@/types/api';
+import type { components } from '@/types/types';
 
 type TodoRead = components['schemas']['TodoRead'];
 type TodoUpdate = components['schemas']['TodoUpdate'];

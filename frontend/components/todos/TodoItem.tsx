@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
-import type { components } from '@/types/api';
+import type { components } from '@/types/types';
 
 type Todo = components['schemas']['TodoRead'];
 

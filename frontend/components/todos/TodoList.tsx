@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api';
 import DeleteButton from '@/components/ui/DeleteButton';
 import EditButton from '@/components/ui/EditButton';
 import TodoEditForm from '@/components/todos/TodoEditForm';
-import type { components } from '@/types/api';
+import type { components } from '@/types/types';
 
 type Todo = components['schemas']['TodoRead'];
 

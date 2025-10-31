@@ -1,8 +1,8 @@
 import createClient from 'openapi-fetch';
-import type { paths, components } from '@/types/api';
+import type { paths, components } from '@/types/types';
 
 export const apiClient = createClient<paths>({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  baseUrl: 'http://localhost:8000',
 });
 
 export async function createTodo(todo: components['schemas']['TodoCreate']) {
