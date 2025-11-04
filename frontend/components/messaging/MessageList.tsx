@@ -16,9 +16,20 @@ export default function MessageList({ messages }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
+    setIsUserScrolling(false);
+  };
+
+  const isNearBottom = () => {
+    if (!containerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    // Consider "near bottom" if within 200px
+    return distanceFromBottom < 200;
   };
 
   const handleScroll = () => {
@@ -28,21 +39,38 @@ export default function MessageList({ messages }: MessageListProps) {
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
     setShowScrollButton(distanceFromBottom > 100);
+
+    // Detect manual user scrolling
+    if (distanceFromBottom > 200) {
+      setIsUserScrolling(true);
+    } else {
+      // User scrolled back to bottom
+      setIsUserScrolling(false);
+    }
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
   };
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-
-    if (distanceFromBottom < 100) {
+    // Only auto-scroll if user is near the bottom (not reading history)
+    if (!isUserScrolling && isNearBottom()) {
       scrollToBottom('smooth');
     }
-  }, [messages]);
+  }, [messages, isUserScrolling]);
 
   useEffect(() => {
+    // Initial scroll to bottom
     scrollToBottom('auto');
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
 
   if (messages.length === 0) {
@@ -68,7 +96,7 @@ export default function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={containerRef}
         onScroll={handleScroll}

@@ -21,6 +21,7 @@ alembic = "^1.17.1"
 greenlet = "^3.2.4"
 websockets = "^15.0.1"
 pydantic-ai = "^1.9.1"
+datasets = "^4.3.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

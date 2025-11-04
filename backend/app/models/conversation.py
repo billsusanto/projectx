@@ -1,8 +1,8 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from enum import Enum
-from sqlalchemy import Column, DateTime, func
+from sqlalchemy import Column, DateTime, JSON, func
 
 class MessageRoleEnum(str, Enum):
     USER = "USER"
@@ -39,6 +39,7 @@ class MessageBase(SQLModel):
     content: str = Field(min_length=1, max_length=25_000)
     role: MessageRoleEnum
     conversation_id: int = Field(foreign_key="conversations.id")
+    parts: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
 class Message(MessageBase, table=True):
     __tablename__ = "messages"
@@ -54,7 +55,9 @@ class Message(MessageBase, table=True):
 class MessageCreate(SQLModel):
     content: str = Field(min_length=1, max_length=25_000)
     conversation_id: Optional[int] = None
+    parts: Optional[Dict[str, Any]] = None
 
 class MessageRead(MessageBase):
     id: int
     created_at: datetime
+    parts: Optional[Dict[str, Any]] = None
