@@ -83,6 +83,7 @@ next-env.d.ts
 
 # Test/benchmark repositories
 swe_bench/
+SWE-bench/
 
 # SWE-bench evaluation
 swe_bench_eval/
