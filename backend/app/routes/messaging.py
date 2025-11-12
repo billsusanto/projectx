@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from typing import List, Optional
 from pathlib import Path
+from pydantic import Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import (
     ModelRequest, ModelResponse, UserPromptPart, TextPart, ModelMessage,
@@ -13,13 +14,15 @@ import asyncio
 
 from app.utils.logger import logger
 from app.database import async_session, get_session
-from app.models import Conversation, Message, ConversationRead, MessageRead, MessageRoleEnum
+from app.models import Conversation, Message, ConversationRead, MessageRead, MessageRoleEnum, WebSocketMessage
 from app.services.connection_manager import manager
 
 from app.tools import (
     read_file, write_file, edit_file, list_files, search_in_files,
     run_command, run_git_command, run_tests,
-    get_working_directory, file_exists
+    start_background_process, stop_background_process, list_background_processes,
+    get_working_directory, file_exists,
+    PathValidator
 )
 
 router = APIRouter(
@@ -29,6 +32,9 @@ router = APIRouter(
 
 # SWE-bench evaluation directory - all file operations restricted to this directory
 SANDBOX_DIR = Path("~/Documents/Projects/projectx/swe_bench_eval").expanduser().resolve()
+
+# Initialize PathValidator with sandbox directory
+path_validator = PathValidator([SANDBOX_DIR])
 
 # Dependency for streaming updates
 @dataclass
@@ -46,25 +52,6 @@ async def send_tool_update(websocket: WebSocket, message_id: int, tool_name: str
         **data,
         "conversation_id": conversation_id,
     })
-
-def validate_path_in_sandbox(file_path: str) -> Path:
-    """
-    Validate that a file path is within the sandbox directory.
-    Returns the resolved absolute path if valid, raises ValueError if not.
-    """
-    try:
-        resolved_path = Path(file_path).expanduser().resolve()
-
-        # Check if the path is within sandbox (or is the sandbox itself)
-        if resolved_path == SANDBOX_DIR or SANDBOX_DIR in resolved_path.parents or resolved_path.is_relative_to(SANDBOX_DIR):
-            return resolved_path
-        else:
-            raise ValueError(
-                f"Access denied: Path '{file_path}' is outside the allowed workspace.\n"
-                f"All operations must be within: {SANDBOX_DIR}"
-            )
-    except Exception as e:
-        raise ValueError(f"Invalid path '{file_path}': {str(e)}")
 
 def estimate_token_count(message_history: List[ModelMessage]) -> int:
     """Estimate token count for message history.
@@ -241,6 +228,7 @@ messagingAgent = Agent(
     'anthropic:claude-sonnet-4-5',
     output_type=str,
     deps_type=StreamingContext,
+    retries=10,  # Allow 10 retries for tool calls before giving up
     model_settings={
         'thinking': {
             'type': 'enabled',
@@ -248,7 +236,7 @@ messagingAgent = Agent(
         }
     },
     system_prompt=(
-        'You are AgentX, a software engineering AI agent specialized in solving SWE-bench tasks. '
+        'You are AgentX, a software engineering AI agent.'
         f'Your workspace is: {SANDBOX_DIR}\n\n'
         'IMPORTANT: All file operations must be within your workspace directory. '
         'You cannot access files outside this directory.\n\n'
@@ -259,6 +247,13 @@ messagingAgent = Agent(
         '3. Use edit_file_tool or write_file_tool to make changes\n'
         '4. Use run_tests_tool to verify your changes\n'
         '5. Use run_git_command_tool to check status and diffs\n\n'
+        'TOOL USAGE GUIDELINES:\n'
+        '- ALWAYS provide ALL required parameters when calling tools\n'
+        '- For run_command_tool: the "command" parameter is REQUIRED and must be a valid shell command string\n'
+        '- For npm/npx commands: use "npx -y" to skip interactive prompts (e.g., "npx -y create-next-app@latest")\n'
+        '- Package installation commands have a 300-second timeout by default\n'
+        '- For long-running servers (npm run dev, yarn dev, etc.): use start_dev_server_tool NOT run_command_tool\n'
+        '- Background processes will keep running until you stop them with stop_dev_server_tool\n\n'
         'Always explain your reasoning before taking action. '
         'Use relative paths from your workspace directory when possible.'
     ),
@@ -266,7 +261,12 @@ messagingAgent = Agent(
 
 # Register file operation tools
 @messagingAgent.tool
-async def read_file_tool(ctx: RunContext[StreamingContext], file_path: str, start_line: Optional[int] = None, end_line: Optional[int] = None) -> str:
+async def read_file_tool(
+    ctx: RunContext[StreamingContext],
+    file_path: str = Field(description="Path to the file to read, relative to workspace (e.g., 'src/main.py' or './README.md')"),
+    start_line: Optional[int] = Field(None, description="Optional starting line number (1-indexed). If provided, only reads from this line onwards."),
+    end_line: Optional[int] = Field(None, description="Optional ending line number (1-indexed). If provided with start_line, only reads the specified range.")
+) -> str:
     """Read contents of a file within the workspace. Optionally specify line range."""
     try:
         await send_tool_update(
@@ -278,7 +278,7 @@ async def read_file_tool(ctx: RunContext[StreamingContext], file_path: str, star
             ctx.deps.conversation_id
         )
 
-        validate_path_in_sandbox(file_path)
+        path_validator.validate(file_path)
         result = await read_file(file_path, start_line, end_line)
         output = f"File: {result.path}\nLines: {result.lines}\n\n{result.content}"
 
@@ -304,7 +304,11 @@ async def read_file_tool(ctx: RunContext[StreamingContext], file_path: str, star
         return error_msg
 
 @messagingAgent.tool
-async def write_file_tool(ctx: RunContext[StreamingContext], file_path: str, content: str) -> str:
+async def write_file_tool(
+    ctx: RunContext[StreamingContext],
+    file_path: str = Field(description="Path where the file should be written, relative to workspace (e.g., 'src/new_file.py'). Parent directories will be created if they don't exist."),
+    content: str = Field(description="The complete content to write to the file. This will overwrite any existing content.")
+) -> str:
     """Write content to a file within the workspace. Creates parent directories if needed."""
     try:
         await ctx.deps.websocket.send_json({
@@ -315,7 +319,7 @@ async def write_file_tool(ctx: RunContext[StreamingContext], file_path: str, con
             "conversation_id": ctx.deps.conversation_id,
         })
 
-        validate_path_in_sandbox(file_path)
+        path_validator.validate(file_path)
         result = await write_file(file_path, content)
 
         await ctx.deps.websocket.send_json({
@@ -338,7 +342,12 @@ async def write_file_tool(ctx: RunContext[StreamingContext], file_path: str, con
         return error_msg
 
 @messagingAgent.tool
-async def edit_file_tool(ctx: RunContext[StreamingContext], file_path: str, old_content: str, new_content: str) -> str:
+async def edit_file_tool(
+    ctx: RunContext[StreamingContext],
+    file_path: str = Field(description="Path to the file to edit, relative to workspace (e.g., 'src/config.py')"),
+    old_content: str = Field(description="The exact text to find and replace in the file. Must match exactly including whitespace."),
+    new_content: str = Field(description="The new text that will replace old_content. Can be the same length, shorter, or longer.")
+) -> str:
     """Edit a file within the workspace by replacing old_content with new_content."""
     try:
         await ctx.deps.websocket.send_json({
@@ -349,7 +358,7 @@ async def edit_file_tool(ctx: RunContext[StreamingContext], file_path: str, old_
             "conversation_id": ctx.deps.conversation_id,
         })
 
-        validate_path_in_sandbox(file_path)
+        path_validator.validate(file_path)
         result = await edit_file(file_path, old_content, new_content)
 
         await ctx.deps.websocket.send_json({
@@ -372,7 +381,12 @@ async def edit_file_tool(ctx: RunContext[StreamingContext], file_path: str, old_
         return error_msg
 
 @messagingAgent.tool
-async def list_files_tool(ctx: RunContext[StreamingContext], directory: str = ".", pattern: str = "*", recursive: bool = False) -> List[str]:
+async def list_files_tool(
+    ctx: RunContext[StreamingContext],
+    directory: str = Field(default=".", description="Directory to list files from, relative to workspace (e.g., 'src' or '.'). Use '.' for workspace root."),
+    pattern: str = Field(default="*", description="Glob pattern to filter files (e.g., '*.py' for Python files, '*.js' for JavaScript, or '*' for all files)"),
+    recursive: bool = Field(default=False, description="If True, searches subdirectories recursively. If False, only lists files in the specified directory.")
+) -> List[str]:
     """List files in a directory within the workspace matching a pattern."""
     try:
         # Send tool call notification
@@ -389,7 +403,7 @@ async def list_files_tool(ctx: RunContext[StreamingContext], directory: str = ".
         if directory == ".":
             directory = str(SANDBOX_DIR)
         else:
-            validate_path_in_sandbox(directory)
+            path_validator.validate(directory)
 
         result = await list_files(directory, pattern, recursive)
 
@@ -417,7 +431,12 @@ async def list_files_tool(ctx: RunContext[StreamingContext], directory: str = ".
         return error_result
 
 @messagingAgent.tool
-async def search_in_files_tool(ctx: RunContext[StreamingContext], pattern: str, directory: str = ".", file_pattern: str = "*.py") -> str:
+async def search_in_files_tool(
+    ctx: RunContext[StreamingContext],
+    pattern: str = Field(description="Text or regex pattern to search for (e.g., 'def calculate' or 'import.*numpy')"),
+    directory: str = Field(default=".", description="Directory to search in, relative to workspace (e.g., 'src' or '.'). Use '.' for workspace root."),
+    file_pattern: str = Field(default="*.py", description="File pattern to search within (e.g., '*.py' for Python, '*.js' for JavaScript, '*' for all files)")
+) -> str:
     """Search for a text pattern in files within the workspace. Returns matching lines with context."""
     try:
         await ctx.deps.websocket.send_json({
@@ -432,7 +451,7 @@ async def search_in_files_tool(ctx: RunContext[StreamingContext], pattern: str, 
         if directory == ".":
             directory = str(SANDBOX_DIR)
         else:
-            validate_path_in_sandbox(directory)
+            path_validator.validate(directory)
 
         results = await search_in_files(pattern, directory, file_pattern)
         if not results:
@@ -465,8 +484,22 @@ async def search_in_files_tool(ctx: RunContext[StreamingContext], pattern: str, 
         return error_msg
 
 @messagingAgent.tool
-async def run_command_tool(ctx: RunContext[StreamingContext], command: str, cwd: Optional[str] = None, timeout: int = 60) -> str:
-    """Execute a shell command within the workspace and return the output."""
+async def run_command_tool(
+    ctx: RunContext[StreamingContext],
+    command: str = Field(description="The shell command to execute (e.g., 'npm install', 'git status', 'python script.py'). REQUIRED parameter. Use 'npx -y' for npm commands to skip prompts."),
+    cwd: Optional[str] = Field(None, description="Working directory for command execution, relative to workspace (e.g., 'src' or './frontend'). Defaults to workspace root if not specified."),
+    timeout: int = Field(default=300, description="Command timeout in seconds. Default is 300 seconds (5 minutes). Increase for long-running installations or builds.")
+) -> str:
+    """Execute a shell command within the workspace and return the output.
+
+    Args:
+        command (str): REQUIRED. The shell command to execute (e.g., "npm install", "git status").
+        cwd (str, optional): Working directory path. Defaults to sandbox workspace.
+        timeout (int, optional): Command timeout in seconds. Default is 300 seconds for package installations.
+
+    Returns:
+        str: The command output including return code, stdout, and stderr.
+    """
     try:
         await send_tool_update(
             ctx.deps.websocket,
@@ -481,7 +514,7 @@ async def run_command_tool(ctx: RunContext[StreamingContext], command: str, cwd:
         if cwd is None:
             cwd = str(SANDBOX_DIR)
         else:
-            validate_path_in_sandbox(cwd)
+            path_validator.validate(cwd)
 
         result = await run_command(command, cwd, timeout)
         output = f"Return code: {result.return_code}\n\nStdout:\n{result.stdout}\n\nStderr:\n{result.stderr}"
@@ -508,7 +541,11 @@ async def run_command_tool(ctx: RunContext[StreamingContext], command: str, cwd:
         return error_msg
 
 @messagingAgent.tool
-async def run_git_command_tool(ctx: RunContext[StreamingContext], git_command: str, cwd: Optional[str] = None) -> str:
+async def run_git_command_tool(
+    ctx: RunContext[StreamingContext],
+    git_command: str = Field(description="Git command to execute WITHOUT 'git' prefix (e.g., 'status', 'diff', 'log --oneline -5', 'add .', 'commit -m \"message\"')"),
+    cwd: Optional[str] = Field(None, description="Working directory for git command, relative to workspace. Defaults to workspace root if not specified.")
+) -> str:
     """Execute a git command (without 'git' prefix) within the workspace."""
     try:
         await ctx.deps.websocket.send_json({
@@ -523,7 +560,7 @@ async def run_git_command_tool(ctx: RunContext[StreamingContext], git_command: s
         if cwd is None:
             cwd = str(SANDBOX_DIR)
         else:
-            validate_path_in_sandbox(cwd)
+            path_validator.validate(cwd)
 
         result = await run_git_command(git_command, cwd)
 
@@ -547,7 +584,11 @@ async def run_git_command_tool(ctx: RunContext[StreamingContext], git_command: s
         return error_msg
 
 @messagingAgent.tool
-async def run_tests_tool(ctx: RunContext[StreamingContext], test_path: str = "tests/", cwd: Optional[str] = None) -> str:
+async def run_tests_tool(
+    ctx: RunContext[StreamingContext],
+    test_path: str = Field(default="tests/", description="Path to test file or directory to run (e.g., 'tests/', 'tests/test_api.py', or 'tests/test_auth.py::test_login')"),
+    cwd: Optional[str] = Field(None, description="Working directory for test execution, relative to workspace. Defaults to workspace root if not specified.")
+) -> str:
     """Run pytest tests within the workspace and return results."""
     try:
         await ctx.deps.websocket.send_json({
@@ -562,7 +603,7 @@ async def run_tests_tool(ctx: RunContext[StreamingContext], test_path: str = "te
         if cwd is None:
             cwd = str(SANDBOX_DIR)
         else:
-            validate_path_in_sandbox(cwd)
+            path_validator.validate(cwd)
 
         result = await run_tests(test_path, cwd)
         output = f"Return code: {result.return_code}\n\n{result.stdout}\n\n{result.stderr}"
@@ -588,7 +629,7 @@ async def run_tests_tool(ctx: RunContext[StreamingContext], test_path: str = "te
 
 @messagingAgent.tool
 async def get_working_directory_tool(ctx: RunContext[StreamingContext]) -> str:
-    """Get the workspace directory."""
+    """Get the current workspace directory path. Use this to understand where file operations will be performed."""
     # Send tool call notification
     await send_tool_update(
         ctx.deps.websocket,
@@ -614,7 +655,10 @@ async def get_working_directory_tool(ctx: RunContext[StreamingContext]) -> str:
     return result
 
 @messagingAgent.tool
-async def file_exists_tool(ctx: RunContext[StreamingContext], file_path: str) -> bool:
+async def file_exists_tool(
+    ctx: RunContext[StreamingContext],
+    file_path: str = Field(description="Path to check for existence, relative to workspace (e.g., 'src/config.py' or './package.json')")
+) -> bool:
     """Check if a file exists within the workspace."""
     try:
         await ctx.deps.websocket.send_json({
@@ -625,7 +669,7 @@ async def file_exists_tool(ctx: RunContext[StreamingContext], file_path: str) ->
             "conversation_id": ctx.deps.conversation_id,
         })
 
-        validate_path_in_sandbox(file_path)
+        path_validator.validate(file_path)
         result = await file_exists(file_path)
 
         await ctx.deps.websocket.send_json({
@@ -646,6 +690,151 @@ async def file_exists_tool(ctx: RunContext[StreamingContext], file_path: str) ->
             "conversation_id": ctx.deps.conversation_id,
         })
         return False
+
+@messagingAgent.tool
+async def start_dev_server_tool(
+    ctx: RunContext[StreamingContext],
+    command: str = Field(description="The long-running command to execute in background (e.g., 'npm run dev', 'yarn dev', 'python manage.py runserver'). REQUIRED parameter."),
+    process_id: str = Field(description="Unique identifier for this background process (e.g., 'next-dev-server', 'django-server', 'webpack-watcher'). Used to stop the process later. REQUIRED parameter."),
+    cwd: Optional[str] = Field(None, description="Working directory for the process, relative to workspace (e.g., 'frontend' or './my-app'). Defaults to workspace root if not specified.")
+) -> str:
+    """Start a long-running development server or background process.
+
+    Use this for commands that run indefinitely like 'npm run dev', 'yarn dev', etc.
+    DO NOT use run_command_tool for these - it will timeout!
+
+    Args:
+        command (str): REQUIRED. The command to run (e.g., "npm run dev").
+        process_id (str): REQUIRED. Unique ID for this process (e.g., "next-dev-server").
+        cwd (str, optional): Working directory path. Defaults to sandbox workspace.
+
+    Returns:
+        str: Confirmation with process ID and PID.
+
+    Example tool calls:
+        {"command": "npm run dev", "process_id": "next-dev-server", "cwd": "webdev-testing/my-app"}
+        {"command": "python manage.py runserver", "process_id": "django-server"}
+    """
+    try:
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "start_dev_server_tool",
+            "tool_start",
+            {"args": {"command": command, "process_id": process_id, "cwd": cwd}},
+            ctx.deps.conversation_id
+        )
+
+        # Default to sandbox directory if no cwd specified
+        if cwd is None:
+            cwd = str(SANDBOX_DIR)
+        else:
+            path_validator.validate(cwd)
+
+        result = await start_background_process(command, process_id, cwd)
+
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "start_dev_server_tool",
+            "tool_complete",
+            {"result": result},
+            ctx.deps.conversation_id
+        )
+        return result
+    except Exception as e:
+        error_msg = f"Error starting background process: {str(e)}"
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "start_dev_server_tool",
+            "tool_complete",
+            {"error": error_msg},
+            ctx.deps.conversation_id
+        )
+        return error_msg
+
+@messagingAgent.tool
+async def stop_dev_server_tool(
+    ctx: RunContext[StreamingContext],
+    process_id: str = Field(description="The unique identifier of the process to stop (e.g., 'next-dev-server', 'django-server'). Must match the process_id used when starting. REQUIRED parameter.")
+) -> str:
+    """Stop a running background process by its ID.
+
+    Args:
+        process_id (str): REQUIRED. The ID given when starting the process.
+
+    Returns:
+        str: Confirmation message.
+    """
+    try:
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "stop_dev_server_tool",
+            "tool_start",
+            {"args": {"process_id": process_id}},
+            ctx.deps.conversation_id
+        )
+
+        result = await stop_background_process(process_id)
+
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "stop_dev_server_tool",
+            "tool_complete",
+            {"result": result},
+            ctx.deps.conversation_id
+        )
+        return result
+    except Exception as e:
+        error_msg = f"Error stopping background process: {str(e)}"
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "stop_dev_server_tool",
+            "tool_complete",
+            {"error": error_msg},
+            ctx.deps.conversation_id
+        )
+        return error_msg
+
+@messagingAgent.tool
+async def list_dev_servers_tool(ctx: RunContext[StreamingContext]) -> str:
+    """List all running background processes/dev servers. Returns process IDs, PIDs, commands, and status for each running process."""
+    try:
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "list_dev_servers_tool",
+            "tool_start",
+            {"args": {}},
+            ctx.deps.conversation_id
+        )
+
+        result = await list_background_processes()
+
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "list_dev_servers_tool",
+            "tool_complete",
+            {"result": result},
+            ctx.deps.conversation_id
+        )
+        return result
+    except Exception as e:
+        error_msg = f"Error listing background processes: {str(e)}"
+        await send_tool_update(
+            ctx.deps.websocket,
+            ctx.deps.agent_message_id,
+            "list_dev_servers_tool",
+            "tool_complete",
+            {"error": error_msg},
+            ctx.deps.conversation_id
+        )
+        return error_msg
 
 @router.websocket("/ws")
 async def websocket_messaging_endpoint(websocket: WebSocket):
@@ -709,7 +898,7 @@ async def websocket_messaging_endpoint(websocket: WebSocket):
                             "type": "message",
                             "id": user_message.id,
                             "parts": [{"part_kind": "user-prompt", "content": user_message.content}],
-                            "role": "user",
+                            "role": user_message.role.value,
                             "conversation_id": conversation_id,
                             "created_at": user_message.created_at.isoformat()
                         })
@@ -883,7 +1072,7 @@ async def websocket_messaging_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "message_complete",
                         "id": agent_message.id,
-                        "role": "agent",
+                        "role": agent_message.role.value,
                         "model_name": latest_model_name,
                         "timestamp": latest_timestamp.isoformat() if latest_timestamp else None,
                         "conversation_id": conversation_id,
@@ -958,3 +1147,13 @@ async def delete_conversation(
     await session.commit()
 
     return {"message": f"Conversation {conversation_id} deleted"}
+
+
+@router.get("/websocket-types", response_model=WebSocketMessage, include_in_schema=True)
+async def get_websocket_message_types():
+    """
+    Hidden endpoint to force FastAPI to include WebSocket message types in OpenAPI schema.
+    This endpoint is not meant to be called - it just ensures all WebSocket types
+    are available in /openapi.json for TypeScript generation.
+    """
+    raise HTTPException(status_code=501, detail="This endpoint is for schema generation only")

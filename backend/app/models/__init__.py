@@ -10,6 +10,22 @@ from .conversation import (
     MessageRead
 )
 
+from .websocket import (
+    PartKind,
+    MessagePartBase,
+    NodeData,
+    ConversationCreatedMessage,
+    MessageMessage,
+    MessagePartMessage,
+    NodeAddedMessage,
+    TextChunkMessage,
+    MessageCompleteMessage,
+    ToolStartMessage,
+    ToolCompleteMessage,
+    ErrorMessage,
+    WebSocketMessage,
+)
+
 __all__ = [
     # Conversation models
     "MessageRoleEnum",
@@ -21,4 +37,18 @@ __all__ = [
     "Message",
     "MessageCreate",
     "MessageRead",
+    # WebSocket message types
+    "PartKind",
+    "MessagePartBase",
+    "NodeData",
+    "ConversationCreatedMessage",
+    "MessageMessage",
+    "MessagePartMessage",
+    "NodeAddedMessage",
+    "TextChunkMessage",
+    "MessageCompleteMessage",
+    "ToolStartMessage",
+    "ToolCompleteMessage",
+    "ErrorMessage",
+    "WebSocketMessage",
 ]

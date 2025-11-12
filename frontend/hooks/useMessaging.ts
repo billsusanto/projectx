@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { useWebSocket } from './useWebsocket';
-import { Message, WebSocketMessage, ConnectionStatus } from '@/types/messaging';
+import { Message, WebSocketMessage, ConnectionStatus, MessagePart } from '@/types/messaging';
 
 interface UseMessagingReturn {
   messages: Message[];
@@ -34,29 +34,19 @@ export function useMessaging(): UseMessagingReturn {
             parts: data.parts,
             role: data.role,
             created_at: data.created_at,
-            model_name: data.model_name,
-            timestamp: data.timestamp,
+            model_name: data.model_name ?? undefined,
+            timestamp: data.timestamp ?? undefined,
           };
 
           // Add message to array if it doesn't already exist
-          // If user message, replace optimistic message
           setMessages((prev) => {
-            if (data.role === 'user') {
-              // Remove optimistic message and add the real one
-              const withoutOptimistic = prev.filter((m) => !m.isOptimistic);
-              const exists = withoutOptimistic.find((m) => m.id === newMessage.id);
-              if (exists) return prev;
-              return [...withoutOptimistic, newMessage];
-            } else {
-              // For agent messages
-              const exists = prev.find((m) => m.id === newMessage.id);
-              if (exists) return prev;
-              return [...prev, newMessage];
-            }
+            const exists = prev.find((m) => m.id === newMessage.id);
+            if (exists) return prev;
+            return [...prev, newMessage];
           });
 
           // If agent message, stop loading
-          if (data.role === 'agent') {
+          if (data.role === 'AGENT') {
             setIsLoading(false);
           }
           break;
@@ -122,10 +112,10 @@ export function useMessaging(): UseMessagingReturn {
               const newMsg: Message = {
                 id: data.message_id,
                 parts: data.node.parts,
-                role: 'agent',
+                role: 'AGENT',
                 created_at: new Date().toISOString(),
-                model_name: data.node.model_name,
-                timestamp: data.node.timestamp,
+                model_name: data.node.model_name ?? undefined,
+                timestamp: data.node.timestamp ?? undefined,
               };
               return [...prev, newMsg];
             }
@@ -198,8 +188,8 @@ export function useMessaging(): UseMessagingReturn {
               updated[existingIndex] = {
                 ...updated[existingIndex],
                 created_at: data.created_at,
-                model_name: data.model_name,
-                timestamp: data.timestamp,
+                model_name: data.model_name ?? undefined,
+                timestamp: data.timestamp ?? undefined,
               };
               return updated;
             }
@@ -234,7 +224,7 @@ export function useMessaging(): UseMessagingReturn {
                 const newMsg: Message = {
                   id: data.message_id,
                   parts: [toolCallPart],
-                  role: 'agent',
+                  role: 'AGENT',
                   created_at: new Date().toISOString(),
                 };
                 return [...prev, newMsg];
@@ -296,17 +286,6 @@ export function useMessaging(): UseMessagingReturn {
       if (!content.trim()) return;
 
       setIsLoading(true);
-
-      // Add optimistic user message immediately
-      const optimisticMessage: Message = {
-        id: `optimistic-${Date.now()}`, // Temporary ID
-        parts: [{ part_kind: 'user-prompt', content: content.trim() }],
-        role: 'user', // lowercase to match MessageRoleEnum type
-        created_at: new Date().toISOString(),
-        isOptimistic: true,
-      };
-
-      setMessages((prev) => [...prev, optimisticMessage]);
 
       wsSendMessage({
         content: content.trim(),

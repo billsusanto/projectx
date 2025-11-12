@@ -17,9 +17,9 @@ export default function MessageList({ messages }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth'): void => {
     messagesEndRef.current?.scrollIntoView({ behavior });
     setIsUserScrolling(false);
   };
@@ -28,7 +28,7 @@ export default function MessageList({ messages }: MessageListProps) {
     if (!containerRef.current) return true;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    // Consider "near bottom" if within 200px
+ 
     return distanceFromBottom < 200;
   };
 
@@ -40,32 +40,26 @@ export default function MessageList({ messages }: MessageListProps) {
 
     setShowScrollButton(distanceFromBottom > 100);
 
-    // Detect manual user scrolling
     if (distanceFromBottom > 200) {
       setIsUserScrolling(true);
     } else {
-      // User scrolled back to bottom
       setIsUserScrolling(false);
     }
 
-    // Clear existing timeout
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
   };
 
   useEffect(() => {
-    // Only auto-scroll if user is near the bottom (not reading history)
     if (!isUserScrolling && isNearBottom()) {
       scrollToBottom('smooth');
     }
   }, [messages, isUserScrolling]);
 
   useEffect(() => {
-    // Initial scroll to bottom
     scrollToBottom('auto');
 
-    // Cleanup timeout on unmount
     return () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);

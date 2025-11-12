@@ -1,8 +1,38 @@
 import type { components } from './types';
 
+// Export types from OpenAPI schema
 export type MessageRead = components['schemas']['MessageRead'];
 export type ConversationRead = components['schemas']['ConversationRead'];
 export type MessageRole = components['schemas']['MessageRoleEnum'];
+
+// Export WebSocket message types from OpenAPI schema
+export type MessagePartBase = components['schemas']['MessagePartBase'];
+export type PartKind = components['schemas']['PartKind'];
+export type NodeData = components['schemas']['NodeData'];
+export type ConversationCreatedMessage = components['schemas']['ConversationCreatedMessage'];
+export type MessageMessage = components['schemas']['MessageMessage'];
+export type MessagePartMessage = components['schemas']['MessagePartMessage'];
+export type NodeAddedMessage = components['schemas']['NodeAddedMessage'];
+export type TextChunkMessage = components['schemas']['TextChunkMessage'];
+export type MessageCompleteMessage = components['schemas']['MessageCompleteMessage'];
+export type ToolStartMessage = components['schemas']['ToolStartMessage'];
+export type ToolCompleteMessage = components['schemas']['ToolCompleteMessage'];
+export type ErrorMessage = components['schemas']['ErrorMessage'];
+
+// Union type of all WebSocket messages
+export type WebSocketMessage =
+    | ConversationCreatedMessage
+    | MessageMessage
+    | MessagePartMessage
+    | NodeAddedMessage
+    | TextChunkMessage
+    | MessageCompleteMessage
+    | ToolStartMessage
+    | ToolCompleteMessage
+    | ErrorMessage;
+
+// For backward compatibility, create alias for MessagePart
+export type MessagePart = MessagePartBase;
 
 export enum ConnectionStatus {
     CONNECTING = 'connecting',
@@ -10,86 +40,6 @@ export enum ConnectionStatus {
     DISCONNECTED = 'disconnected',
     ERROR = 'error',
 }
-
-export interface MessagePart {
-    part_kind: 'text' | 'thinking' | 'tool-call' | 'tool-return' | 'user-prompt' | 'system-prompt';
-    content?: string;
-
-    // Thinking-specific fields
-    provider_name?: string;
-    signature?: string;
-    id?: string;
-
-    // Tool-specific fields
-    tool_name?: string;
-    tool_call_id?: string;
-    args?: Record<string, any>;
-    metadata?: Record<string, any>;
-    timestamp?: string;
-}
-
-export type WebSocketMessage =
-    | { type: 'conversation_created'; conversation_id: number }
-    | {
-        type: 'message';
-        id: number;
-        parts: MessagePart[];
-        role: MessageRole;
-        conversation_id: number;
-        created_at: string;
-        model_name?: string;
-        timestamp?: string;
-      }
-    | {
-        type: 'message_part';
-        message_id: number;
-        part: MessagePart;
-        role: MessageRole;
-        conversation_id: number;
-      }
-    | {
-        type: 'node_added';
-        message_id: number;
-        node: {
-          id: string;
-          step: number;
-          parts: MessagePart[];
-          model_name?: string;
-          timestamp?: string;
-        };
-        conversation_id: number;
-      }
-    | {
-        type: 'text_chunk';
-        message_id: number;
-        chunk: string;
-        role: MessageRole;
-        conversation_id: number;
-      }
-    | {
-        type: 'message_complete';
-        id: number;
-        role: MessageRole;
-        conversation_id: number;
-        created_at: string;
-        model_name?: string;
-        timestamp?: string;
-      }
-    | {
-        type: 'tool_start';
-        message_id: number;
-        tool_name: string;
-        args: Record<string, any>;
-        conversation_id: number;
-      }
-    | {
-        type: 'tool_complete';
-        message_id: number;
-        tool_name: string;
-        result: any;
-        conversation_id: number;
-      }
-    | { type: 'error'; error: string };
 
 export interface SendMessagePayload {
     content: string;
@@ -103,5 +53,4 @@ export interface Message {
     created_at: string;
     model_name?: string;
     timestamp?: string;
-    isOptimistic?: boolean;
 }
