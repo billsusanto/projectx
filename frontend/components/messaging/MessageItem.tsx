@@ -14,7 +14,7 @@ interface MessageItemProps {
 }
 
 export default function MessageItem({ message }: MessageItemProps) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === 'USER';
   const timestamp = new Date(message.created_at).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',

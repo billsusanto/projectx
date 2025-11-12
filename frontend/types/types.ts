@@ -64,6 +64,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/messaging/websocket-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Websocket Message Types
+         * @description Hidden endpoint to force FastAPI to include WebSocket message types in OpenAPI schema.
+         *     This endpoint is not meant to be called - it just ensures all WebSocket types
+         *     are available in /openapi.json for TypeScript generation.
+         */
+        get: operations["get_websocket_message_types_messaging_websocket_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -85,6 +107,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ConversationCreatedMessage
+         * @description Message sent when a new conversation is created.
+         */
+        ConversationCreatedMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "conversation_created";
+            /** Conversation Id */
+            conversation_id: number;
+        };
         /** ConversationRead */
         ConversationRead: {
             /**
@@ -107,10 +142,117 @@ export interface components {
             /** Message Count */
             message_count?: number | null;
         };
+        /**
+         * ErrorMessage
+         * @description Error message.
+         */
+        ErrorMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "error";
+            /** Error */
+            error: string;
+            /** Conversation Id */
+            conversation_id?: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * MessageCompleteMessage
+         * @description Message indicating a message is complete.
+         */
+        MessageCompleteMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "message_complete";
+            /** Id */
+            id: number;
+            role: components["schemas"]["MessageRoleEnum"];
+            /** Conversation Id */
+            conversation_id: number;
+            /** Created At */
+            created_at: string;
+            /** Model Name */
+            model_name?: string | null;
+            /** Timestamp */
+            timestamp?: string | null;
+        };
+        /**
+         * MessageMessage
+         * @description Full message with all parts.
+         */
+        MessageMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "message";
+            /** Id */
+            id: number;
+            /** Parts */
+            parts: components["schemas"]["MessagePartBase"][];
+            role: components["schemas"]["MessageRoleEnum"];
+            /** Conversation Id */
+            conversation_id: number;
+            /** Created At */
+            created_at: string;
+            /** Model Name */
+            model_name?: string | null;
+            /** Timestamp */
+            timestamp?: string | null;
+        };
+        /**
+         * MessagePartBase
+         * @description Base model for message parts.
+         */
+        MessagePartBase: {
+            part_kind: components["schemas"]["PartKind"];
+            /** Content */
+            content?: string | null;
+            /** Provider Name */
+            provider_name?: string | null;
+            /** Signature */
+            signature?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Tool Name */
+            tool_name?: string | null;
+            /** Tool Call Id */
+            tool_call_id?: string | null;
+            /** Args */
+            args?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /** Timestamp */
+            timestamp?: string | null;
+        };
+        /**
+         * MessagePartMessage
+         * @description Individual message part (for streaming).
+         */
+        MessagePartMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "message_part";
+            /** Message Id */
+            message_id: number;
+            part: components["schemas"]["MessagePartBase"];
+            role: components["schemas"]["MessageRoleEnum"];
+            /** Conversation Id */
+            conversation_id: number;
         };
         /** MessageRead */
         MessageRead: {
@@ -119,6 +261,10 @@ export interface components {
             role: components["schemas"]["MessageRoleEnum"];
             /** Conversation Id */
             conversation_id: number;
+            /** Parts */
+            parts?: {
+                [key: string]: unknown;
+            } | null;
             /** Id */
             id: number;
             /**
@@ -131,7 +277,103 @@ export interface components {
          * MessageRoleEnum
          * @enum {string}
          */
-        MessageRoleEnum: "user" | "agent";
+        MessageRoleEnum: "USER" | "AGENT";
+        /**
+         * NodeAddedMessage
+         * @description Message indicating a new node was added to the execution graph.
+         */
+        NodeAddedMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "node_added";
+            /** Message Id */
+            message_id: number;
+            node: components["schemas"]["NodeData"];
+            /** Conversation Id */
+            conversation_id: number;
+        };
+        /**
+         * NodeData
+         * @description Data structure for node_added message.
+         */
+        NodeData: {
+            /** Id */
+            id: string;
+            /** Step */
+            step: number;
+            /** Parts */
+            parts: components["schemas"]["MessagePartBase"][];
+            /** Model Name */
+            model_name?: string | null;
+            /** Timestamp */
+            timestamp?: string | null;
+        };
+        /**
+         * PartKind
+         * @description Types of message parts.
+         * @enum {string}
+         */
+        PartKind: "text" | "thinking" | "tool-call" | "tool-return" | "user-prompt" | "system-prompt";
+        /**
+         * TextChunkMessage
+         * @description Streaming text chunk.
+         */
+        TextChunkMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "text_chunk";
+            /** Message Id */
+            message_id: number;
+            /** Chunk */
+            chunk: string;
+            role: components["schemas"]["MessageRoleEnum"];
+            /** Conversation Id */
+            conversation_id: number;
+        };
+        /**
+         * ToolCompleteMessage
+         * @description Message indicating a tool execution has completed.
+         */
+        ToolCompleteMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "tool_complete";
+            /** Message Id */
+            message_id: number;
+            /** Tool Name */
+            tool_name: string;
+            /** Result */
+            result: unknown;
+            /** Conversation Id */
+            conversation_id: number;
+        };
+        /**
+         * ToolStartMessage
+         * @description Message indicating a tool execution has started.
+         */
+        ToolStartMessage: {
+            /**
+             * Type
+             * @constant
+             */
+            type: "tool_start";
+            /** Message Id */
+            message_id: number;
+            /** Tool Name */
+            tool_name: string;
+            /** Args */
+            args: {
+                [key: string]: unknown;
+            };
+            /** Conversation Id */
+            conversation_id: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -228,6 +470,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_websocket_message_types_messaging_websocket_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationCreatedMessage"] | components["schemas"]["MessageMessage"] | components["schemas"]["MessagePartMessage"] | components["schemas"]["NodeAddedMessage"] | components["schemas"]["TextChunkMessage"] | components["schemas"]["MessageCompleteMessage"] | components["schemas"]["ToolStartMessage"] | components["schemas"]["ToolCompleteMessage"] | components["schemas"]["ErrorMessage"];
                 };
             };
         };

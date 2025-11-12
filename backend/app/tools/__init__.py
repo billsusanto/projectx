@@ -12,6 +12,9 @@ from .agent_tools import (
     run_command,
     run_git_command,
     run_tests,
+    start_background_process,
+    stop_background_process,
+    list_background_processes,
 
     # Utilities
     get_working_directory,
@@ -23,6 +26,11 @@ from .agent_tools import (
     CodeStructure,
     FunctionInfo,
     ClassInfo,
+)
+
+from .path_validator import (
+    # Path validation
+    PathValidator,
 )
 
 __all__ = [
@@ -37,6 +45,9 @@ __all__ = [
     'run_command',
     'run_git_command',
     'run_tests',
+    'start_background_process',
+    'stop_background_process',
+    'list_background_processes',
 
     # Utilities
     'get_working_directory',
@@ -48,4 +59,7 @@ __all__ = [
     'CodeStructure',
     'FunctionInfo',
     'ClassInfo',
+
+    # Path validation
+    'PathValidator',
 ]

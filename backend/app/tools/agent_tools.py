@@ -11,6 +11,9 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 import ast
 
+from app.utils.logger import logger
+from pydantic_ai import ModelRetry
+
 
 # ============================================================================
 # FILE OPERATION TOOLS
@@ -41,32 +44,33 @@ async def read_file(file_path: str, start_line: Optional[int] = None, end_line: 
         read_file('utils.py', start_line=10, end_line=20)
     """
     try:
-        path = Path(file_path).expanduser().resolve()
+        with logger.span('read_file', file_path=file_path, start_line=start_line, end_line=end_line):
+            path = Path(file_path).expanduser().resolve()
 
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+            if not path.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
 
-        if not path.is_file():
-            raise ValueError(f"Path is not a file: {file_path}")
+            if not path.is_file():
+                raise ValueError(f"Path is not a file: {file_path}")
 
-        with open(path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+            with open(path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
 
-        # Handle line range
-        if start_line is not None or end_line is not None:
-            start = (start_line - 1) if start_line else 0
-            end = end_line if end_line else len(lines)
-            lines = lines[start:end]
+            # Handle line range
+            if start_line is not None or end_line is not None:
+                start = (start_line - 1) if start_line else 0
+                end = end_line if end_line else len(lines)
+                lines = lines[start:end]
 
-        content = ''.join(lines)
-        size = path.stat().st_size
+            content = ''.join(lines)
+            size = path.stat().st_size
 
-        return FileReadResult(
-            content=content,
-            lines=len(lines),
-            size_bytes=size,
-            path=str(path)
-        )
+            return FileReadResult(
+                content=content,
+                lines=len(lines),
+                size_bytes=size,
+                path=str(path)
+            )
     except Exception as e:
         raise Exception(f"Error reading file {file_path}: {str(e)}")
 
@@ -87,15 +91,16 @@ async def write_file(file_path: str, content: str, create_dirs: bool = True) -> 
         write_file('src/new_module.py', 'def hello(): pass')
     """
     try:
-        path = Path(file_path).expanduser().resolve()
+        with logger.span('write_file', file_path=file_path, content_length=len(content), create_dirs=create_dirs):
+            path = Path(file_path).expanduser().resolve()
 
-        if create_dirs:
-            path.parent.mkdir(parents=True, exist_ok=True)
+            if create_dirs:
+                path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(content)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(content)
 
-        return f"Successfully wrote {len(content)} bytes to {path}"
+            return f"Successfully wrote {len(content)} bytes to {path}"
     except Exception as e:
         raise Exception(f"Error writing file {file_path}: {str(e)}")
 
@@ -119,23 +124,24 @@ async def edit_file(file_path: str, old_content: str, new_content: str) -> str:
                   'def new_func():\\n    return True')
     """
     try:
-        path = Path(file_path).expanduser().resolve()
+        with logger.span('edit_file', file_path=file_path, old_length=len(old_content), new_length=len(new_content)):
+            path = Path(file_path).expanduser().resolve()
 
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+            if not path.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
 
-        with open(path, 'r', encoding='utf-8') as f:
-            content = f.read()
+            with open(path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-        if old_content not in content:
-            raise ValueError(f"Could not find old_content in file. Make sure the text matches exactly.")
+            if old_content not in content:
+                raise ValueError(f"Could not find old_content in file. Make sure the text matches exactly.")
 
-        new_file_content = content.replace(old_content, new_content, 1)
+            new_file_content = content.replace(old_content, new_content, 1)
 
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(new_file_content)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(new_file_content)
 
-        return f"Successfully edited {path}"
+            return f"Successfully edited {path}"
     except Exception as e:
         raise Exception(f"Error editing file {file_path}: {str(e)}")
 
@@ -157,17 +163,18 @@ async def list_files(directory: str = ".", pattern: str = "*", recursive: bool =
         list_files('src', 'test_*.py')
     """
     try:
-        path = Path(directory).expanduser().resolve()
+        with logger.span('list_files', directory=directory, pattern=pattern, recursive=recursive):
+            path = Path(directory).expanduser().resolve()
 
-        if not path.exists():
-            raise FileNotFoundError(f"Directory not found: {directory}")
+            if not path.exists():
+                raise FileNotFoundError(f"Directory not found: {directory}")
 
-        if recursive:
-            files = [str(p.relative_to(path)) for p in path.rglob(pattern) if p.is_file()]
-        else:
-            files = [str(p.relative_to(path)) for p in path.glob(pattern) if p.is_file()]
+            if recursive:
+                files = [str(p.relative_to(path)) for p in path.rglob(pattern) if p.is_file()]
+            else:
+                files = [str(p.relative_to(path)) for p in path.glob(pattern) if p.is_file()]
 
-        return sorted(files)
+            return sorted(files)
     except Exception as e:
         raise Exception(f"Error listing files in {directory}: {str(e)}")
 
@@ -188,30 +195,31 @@ async def search_in_files(pattern: str, directory: str = ".", file_pattern: str 
         search_in_files('def calculate', 'src', '*.py')
     """
     try:
-        path = Path(directory).expanduser().resolve()
-        files = [p for p in path.rglob(file_pattern) if p.is_file()]
+        with logger.span('search_in_files', pattern=pattern, directory=directory, file_pattern=file_pattern):
+            path = Path(directory).expanduser().resolve()
+            files = [p for p in path.rglob(file_pattern) if p.is_file()]
 
-        results = {}
+            results = {}
 
-        for file_path in files:
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
+            for file_path in files:
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
 
-                matches = []
-                for i, line in enumerate(lines, 1):
-                    if pattern in line:
-                        matches.append({
-                            'line_number': i,
-                            'content': line.rstrip(),
-                        })
+                    matches = []
+                    for i, line in enumerate(lines, 1):
+                        if pattern in line:
+                            matches.append({
+                                'line_number': i,
+                                'content': line.rstrip(),
+                            })
 
-                if matches:
-                    results[str(file_path.relative_to(path))] = matches
-            except Exception:
-                continue  # Skip files that can't be read
+                    if matches:
+                        results[str(file_path.relative_to(path))] = matches
+                except Exception:
+                    continue  # Skip files that can't be read
 
-        return results
+            return results
     except Exception as e:
         raise Exception(f"Error searching files: {str(e)}")
 
@@ -247,28 +255,29 @@ async def run_command(command: str, cwd: Optional[str] = None, timeout: int = 60
         run_command('python -m flake8 src/')
     """
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=cwd
-        )
-
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
+        with logger.span('run_command', command=command, cwd=cwd, timeout=timeout):
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=cwd
             )
-        except asyncio.TimeoutError:
-            process.kill()
-            raise Exception(f"Command timed out after {timeout} seconds: {command}")
 
-        return CommandResult(
-            stdout=stdout.decode('utf-8'),
-            stderr=stderr.decode('utf-8'),
-            return_code=process.returncode,
-            command=command
-        )
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                raise Exception(f"Command timed out after {timeout} seconds: {command}")
+
+            return CommandResult(
+                stdout=stdout.decode('utf-8'),
+                stderr=stderr.decode('utf-8'),
+                return_code=process.returncode,
+                command=command
+            )
     except Exception as e:
         raise Exception(f"Error running command '{command}': {str(e)}")
 
@@ -289,12 +298,13 @@ async def run_git_command(git_command: str, cwd: Optional[str] = None) -> str:
         run_git_command('log --oneline -5')
         run_git_command('diff HEAD~1')
     """
-    result = await run_command(f"git {git_command}", cwd=cwd)
+    with logger.span('run_git_command', git_command=git_command, cwd=cwd):
+        result = await run_command(f"git {git_command}", cwd=cwd)
 
-    if result.return_code != 0:
-        raise Exception(f"Git command failed: {result.stderr}")
+        if result.return_code != 0:
+            raise Exception(f"Git command failed: {result.stderr}")
 
-    return result.stdout
+        return result.stdout
 
 
 async def run_tests(test_path: str = "tests/", cwd: Optional[str] = None, verbose: bool = True) -> CommandResult:
@@ -313,8 +323,9 @@ async def run_tests(test_path: str = "tests/", cwd: Optional[str] = None, verbos
         run_tests('tests/test_api.py')
         run_tests('tests/', verbose=True)
     """
-    verbosity = '-v' if verbose else ''
-    return await run_command(f"pytest {test_path} {verbosity}", cwd=cwd, timeout=300)
+    with logger.span('run_tests', test_path=test_path, cwd=cwd, verbose=verbose):
+        verbosity = '-v' if verbose else ''
+        return await run_command(f"pytest {test_path} {verbosity}", cwd=cwd, timeout=300)
 
 
 class FunctionInfo(BaseModel):
@@ -345,9 +356,156 @@ class CodeStructure(BaseModel):
 
 async def get_working_directory() -> str:
     """Get the current working directory."""
-    return str(Path.cwd())
+    with logger.span('get_working_directory'):
+        return str(Path.cwd())
 
 
 async def file_exists(file_path: str) -> bool:
     """Check if a file exists."""
-    return Path(file_path).expanduser().resolve().exists()
+    with logger.span('file_exists', file_path=file_path):
+        return Path(file_path).expanduser().resolve().exists()
+
+
+# Global dictionary to track background processes
+_background_processes: dict[str, asyncio.subprocess.Process] = {}
+
+
+async def start_background_process(command: str, process_id: str, cwd: Optional[str] = None) -> str:
+    """
+    Start a long-running background process (e.g., dev servers).
+
+    Args:
+        command: The shell command to execute
+        process_id: Unique identifier for this process (for later reference)
+        cwd: Working directory for the command (default: current directory)
+
+    Returns:
+        str: Confirmation message with process ID and PID
+
+    Example:
+        start_background_process('npm run dev', 'next-dev-server', 'webdev-testing/my-app')
+    """
+    with logger.span('start_background_process', command=command, process_id=process_id, cwd=cwd):
+        try:
+            # Set up environment to force non-interactive mode
+            import os
+            env = os.environ.copy()
+            env['CI'] = 'true'
+            env['FORCE_COLOR'] = '0'  # Disable color output
+
+            # Start the process without waiting for it to complete
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,
+                cwd=cwd,
+                env=env
+            )
+
+            # Store the process for later reference
+            _background_processes[process_id] = process
+
+            # Wait a brief moment to see if it crashes immediately
+            await asyncio.sleep(2)
+
+            if process.returncode is not None:
+                # Process exited immediately - something went wrong
+                stdout_data, stderr_data = await process.communicate()
+                stdout = stdout_data.decode('utf-8') if stdout_data else ""
+                stderr = stderr_data.decode('utf-8') if stderr_data else ""
+
+                # Check if it's a transient error
+                error_output = (stdout + stderr).lower()
+                transient_indicators = [
+                    'eaddrinuse', 'port already in use',
+                    'resource temporarily unavailable',
+                    'connection refused'
+                ]
+
+                if any(indicator in error_output for indicator in transient_indicators):
+                    raise ModelRetry(
+                        f"Process failed to start due to transient issue (likely port conflict or resource unavailability).\n"
+                        f"Exit code: {process.returncode}\n"
+                        f"Error: {stderr}\n"
+                        f"Suggestion: Retry after a brief delay."
+                    )
+                else:
+                    raise Exception(
+                        f"Process exited immediately with code {process.returncode}.\n"
+                        f"Stdout: {stdout}\n"
+                        f"Stderr: {stderr}"
+                    )
+
+            return f"✓ Background process '{process_id}' started successfully (PID: {process.pid})\nCommand: {command}\n\nThe process is running in the background. It will continue until stopped."
+
+        except Exception as e:
+            raise Exception(f"Error starting background process '{command}': {str(e)}")
+
+
+async def stop_background_process(process_id: str) -> str:
+    """
+    Stop a background process by its ID.
+
+    Args:
+        process_id: The unique identifier given when starting the process
+
+    Returns:
+        str: Confirmation message
+    """
+    with logger.span('stop_background_process', process_id=process_id):
+        if process_id not in _background_processes:
+            available = ', '.join(_background_processes.keys()) if _background_processes else 'none'
+            raise ValueError(
+                f"No background process found with ID '{process_id}'\n"
+                f"Available processes: {available}\n"
+                f"Suggestions:\n"
+                f"1. Use list_background_processes() to see running processes\n"
+                f"2. Check if the process ID is spelled correctly\n"
+                f"3. The process may have already stopped or never started"
+            )
+
+        process = _background_processes[process_id]
+
+        if process.returncode is not None:
+            # Already stopped
+            del _background_processes[process_id]
+            return f"Process '{process_id}' was already stopped (exit code: {process.returncode})"
+
+        # Terminate the process
+        process.terminate()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
+            # Force kill if it doesn't stop gracefully
+            process.kill()
+            try:
+                await asyncio.wait_for(process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                raise ModelRetry(
+                    f"Process '{process_id}' won't die even after SIGKILL. "
+                    f"This is likely a transient system issue. Retrying may succeed."
+                )
+            await process.wait()
+
+        del _background_processes[process_id]
+        return f"✓ Background process '{process_id}' stopped successfully"
+
+
+async def list_background_processes() -> str:
+    """
+    List all running background processes.
+
+    Returns:
+        str: List of process IDs and their status
+    """
+    with logger.span('list_background_processes'):
+        if not _background_processes:
+            return "No background processes running"
+
+        result = "Background processes:\n"
+        for process_id, process in list(_background_processes.items()):
+            status = "running" if process.returncode is None else f"exited (code: {process.returncode})"
+            result += f"  - {process_id}: {status} (PID: {process.pid})\n"
+
+        return result
