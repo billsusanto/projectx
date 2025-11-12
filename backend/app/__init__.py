@@ -1,3 +1,3 @@
 """
-Todo App - Database models and utilities
+Application - Database models and utilities
 """

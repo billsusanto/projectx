@@ -9,6 +9,12 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_async_engine(
     DATABASE_URL,
     echo=True,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args={
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0,
+    }
 )
 
 async_session = sessionmaker(

@@ -1,17 +1,17 @@
 'use client';
 
-import { useChat } from '@/hooks/useChat';
+import { useMessaging } from '@/hooks/useMessaging';
 import MessageList from './MessageList';
-import ChatInput from './ChatInput';
-import { ConnectionStatus as ConnectionStatusEnum } from '@/types/chat';
+import MessageInput from './MessageInput';
+import { ConnectionStatus as ConnectionStatusEnum } from '@/types/messaging';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { WifiOff, Wifi } from 'lucide-react';
 
-export default function ChatInterface() {
-  const { messages, sendMessage, isLoading, connectionStatus } = useChat();
+export default function MessagingInterface() {
+  const { messages, sendMessage, isLoading, connectionStatus } = useMessaging();
   const previousStatusRef = useRef<ConnectionStatusEnum>(connectionStatus);
 
   const isDisconnected =
@@ -141,7 +141,7 @@ export default function ChatInterface() {
 
       <MessageList messages={messages} />
 
-      <ChatInput onSend={sendMessage} disabled={isDisconnected} isLoading={isLoading} />
+      <MessageInput onSend={sendMessage} disabled={isDisconnected} isLoading={isLoading} />
     </Card>
   );
 }

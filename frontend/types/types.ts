@@ -4,44 +4,7 @@
  */
 
 export interface paths {
-    "/todos/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Todos */
-        get: operations["get_todos_todos__get"];
-        put?: never;
-        /** Create Todo */
-        post: operations["create_todo_todos__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/todos/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Todo */
-        get: operations["get_todo_todos__id__get"];
-        /** Update Todo */
-        put: operations["update_todo_todos__id__put"];
-        post?: never;
-        /** Delete Todo */
-        delete: operations["delete_todo_todos__id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/chatbot/conversations": {
+    "/messaging/conversations": {
         parameters: {
             query?: never;
             header?: never;
@@ -52,7 +15,7 @@ export interface paths {
          * Get Conversations
          * @description Get all conversations
          */
-        get: operations["get_conversations_chatbot_conversations_get"];
+        get: operations["get_conversations_messaging_conversations_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -61,7 +24,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/chatbot/conversations/{conversation_id}/messages": {
+    "/messaging/conversations/{conversation_id}/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -72,7 +35,7 @@ export interface paths {
          * Get Conversation History
          * @description Get all messages in a conversation
          */
-        get: operations["get_conversation_history_chatbot_conversations__conversation_id__messages_get"];
+        get: operations["get_conversation_history_messaging_conversations__conversation_id__messages_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -81,7 +44,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/chatbot/conversations/{conversation_id}": {
+    "/messaging/conversations/{conversation_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -95,7 +58,7 @@ export interface paths {
          * Delete Conversation
          * @description Delete a conversation
          */
-        delete: operations["delete_conversation_chatbot_conversations__conversation_id__delete"];
+        delete: operations["delete_conversation_messaging_conversations__conversation_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -126,7 +89,7 @@ export interface components {
         ConversationRead: {
             /**
              * Title
-             * @default New Chat
+             * @default New Conversation
              */
             title: string;
             /** Id */
@@ -168,66 +131,7 @@ export interface components {
          * MessageRoleEnum
          * @enum {string}
          */
-        MessageRoleEnum: "user" | "assistant";
-        /**
-         * PriorityEnum
-         * @enum {string}
-         */
-        PriorityEnum: "low" | "medium" | "high";
-        /** TodoCreate */
-        TodoCreate: {
-            /** Title */
-            title: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Completed
-             * @default false
-             */
-            completed: boolean;
-            priority?: components["schemas"]["PriorityEnum"] | null;
-            /** Due Date */
-            due_date?: string | null;
-        };
-        /** TodoRead */
-        TodoRead: {
-            /** Title */
-            title: string;
-            /** Description */
-            description?: string | null;
-            /**
-             * Completed
-             * @default false
-             */
-            completed: boolean;
-            priority?: components["schemas"]["PriorityEnum"] | null;
-            /** Due Date */
-            due_date?: string | null;
-            /** Id */
-            id: number;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** TodoUpdate */
-        TodoUpdate: {
-            /** Title */
-            title?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Completed */
-            completed?: boolean | null;
-            priority?: components["schemas"]["PriorityEnum"] | null;
-            /** Due Date */
-            due_date?: string | null;
-        };
+        MessageRoleEnum: "user" | "agent";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -246,157 +150,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    get_todos_todos__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodoRead"][];
-                };
-            };
-        };
-    };
-    create_todo_todos__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TodoCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodoRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_todo_todos__id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodoRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_todo_todos__id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TodoUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodoRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_todo_todos__id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_conversations_chatbot_conversations_get: {
+    get_conversations_messaging_conversations_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -416,7 +170,7 @@ export interface operations {
             };
         };
     };
-    get_conversation_history_chatbot_conversations__conversation_id__messages_get: {
+    get_conversation_history_messaging_conversations__conversation_id__messages_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -447,7 +201,7 @@ export interface operations {
             };
         };
     };
-    delete_conversation_chatbot_conversations__conversation_id__delete: {
+    delete_conversation_messaging_conversations__conversation_id__delete: {
         parameters: {
             query?: never;
             header?: never;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChatMessage } from '@/types/chat';
+import { Message } from '@/types/messaging';
 import MessageItem from './MessageItem';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -9,16 +9,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, MessageSquare, Sparkles } from 'lucide-react';
 
 interface MessageListProps {
-  messages: ChatMessage[];
+  messages: Message[];
 }
 
 export default function MessageList({ messages }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     messagesEndRef.current?.scrollIntoView({ behavior });
+    setIsUserScrolling(false);
+  };
+
+  const isNearBottom = () => {
+    if (!containerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    // Consider "near bottom" if within 200px
+    return distanceFromBottom < 200;
   };
 
   const handleScroll = () => {
@@ -28,21 +39,38 @@ export default function MessageList({ messages }: MessageListProps) {
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
     setShowScrollButton(distanceFromBottom > 100);
+
+    // Detect manual user scrolling
+    if (distanceFromBottom > 200) {
+      setIsUserScrolling(true);
+    } else {
+      // User scrolled back to bottom
+      setIsUserScrolling(false);
+    }
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
   };
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-
-    if (distanceFromBottom < 100) {
+    // Only auto-scroll if user is near the bottom (not reading history)
+    if (!isUserScrolling && isNearBottom()) {
       scrollToBottom('smooth');
     }
-  }, [messages]);
+  }, [messages, isUserScrolling]);
 
   useEffect(() => {
+    // Initial scroll to bottom
     scrollToBottom('auto');
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
 
   if (messages.length === 0) {
@@ -60,7 +88,7 @@ export default function MessageList({ messages }: MessageListProps) {
           <h3 className="text-2xl font-bold text-foreground">Start a conversation</h3>
           <p className="mt-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4" />
-            Type a message below to begin chatting with the AI assistant
+            Type a message below to begin conversing with the AI agent
           </p>
         </motion.div>
       </div>
@@ -68,7 +96,7 @@ export default function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -76,7 +104,7 @@ export default function MessageList({ messages }: MessageListProps) {
         role="log"
         aria-live="polite"
         aria-atomic="false"
-        aria-label="Chat messages"
+        aria-label="Messages"
       >
         <div className="mx-auto max-w-4xl space-y-6">
           {messages.map((message) => (

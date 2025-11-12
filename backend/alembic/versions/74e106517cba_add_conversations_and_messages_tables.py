@@ -30,8 +30,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('messages',
-    sa.Column('content', sqlmodel.sql.sqltypes.AutoString(length=5000), nullable=False),
-    sa.Column('role', sa.Enum('USER', 'ASSISTANT', name='messageroleenum'), nullable=False),
+    sa.Column('content', sqlmodel.sql.sqltypes.AutoString(length=25_000), nullable=False),
+    sa.Column('role', sa.Enum('USER', 'AGENT', name='messageroleenum'), nullable=False),
     sa.Column('conversation_id', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),

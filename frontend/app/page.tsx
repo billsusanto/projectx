@@ -1,10 +1,10 @@
 "use client";
 
-import ChatInterface from '@/components/chat/ChatInterface';
+import MessagingInterface from '@/components/messaging/MessagingInterface';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { motion } from 'framer-motion';
 
-export default function ChatPage() {
+export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background to-muted/20">
       {/* Floating Theme Toggle */}
@@ -25,7 +25,7 @@ export default function ChatPage() {
           transition={{ duration: 0.5 }}
           className="mx-auto h-full max-w-6xl"
         >
-          <ChatInterface />
+          <MessagingInterface />
         </motion.div>
       </div>
 

@@ -6,13 +6,13 @@ import { motion } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface ChatInputProps {
+interface MessageInputProps {
   onSend: (content: string) => void;
   disabled: boolean;
   isLoading: boolean;
 }
 
-export default function ChatInput({ onSend, disabled, isLoading }: ChatInputProps) {
+export default function MessageInput({ onSend, disabled, isLoading }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,7 +82,7 @@ export default function ChatInput({ onSend, disabled, isLoading }: ChatInputProp
                 animate={{ opacity: 1, scale: 1 }}
                 className="absolute bottom-2 right-2 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
               >
-                {message.length}/5000
+                {message.length}/25_000
               </motion.div>
             )}
           </div>

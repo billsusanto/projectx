@@ -4,8 +4,8 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Projectx - AI Chat Assistant",
-  description: "A modern AI-powered chat assistant",
+  title: "Projectx",
+  description: "A project with a modern AI-powered agent",
 };
 
 export default function RootLayout({
