@@ -82,7 +82,6 @@ next-env.d.ts
 .claude/
 
 # Test/benchmark repositories
-swe_bench/
 SWE-bench/
 
 # SWE-bench evaluation
