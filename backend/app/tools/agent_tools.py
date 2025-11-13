@@ -146,35 +146,110 @@ async def edit_file(file_path: str, old_content: str, new_content: str) -> str:
         raise Exception(f"Error editing file {file_path}: {str(e)}")
 
 
-async def list_files(directory: str = ".", pattern: str = "*", recursive: bool = False) -> List[str]:
+async def list_files(
+    directory: str = ".",
+    pattern: str = "*",
+    recursive: bool = False,
+    include_dirs: bool = False,
+    exclude_patterns: Optional[List[str]] = None,
+    respect_gitignore: bool = True
+) -> List[str]:
     """
-    List files in a directory matching a pattern.
+    List files in a directory matching a pattern with smart exclusions.
 
     Args:
         directory: Directory to search (default: current directory)
         pattern: Glob pattern to match (default: all files)
         recursive: Whether to search recursively (default: False)
+        include_dirs: Whether to include directories in results (default: False)
+        exclude_patterns: Custom patterns to exclude (None = use smart defaults)
+        respect_gitignore: Whether to respect .gitignore files (default: True)
 
     Returns:
-        List of matching file paths
+        List of matching file/directory paths
 
     Example:
         list_files('.', '*.py', recursive=True)
-        list_files('src', 'test_*.py')
+        list_files('src', '*', include_dirs=True)
+        list_files('.', '*', exclude_patterns=[])  # No exclusions
     """
     try:
-        with logger.span('list_files', directory=directory, pattern=pattern, recursive=recursive):
+        with logger.span('list_files', directory=directory, pattern=pattern, recursive=recursive, include_dirs=include_dirs):
             path = Path(directory).expanduser().resolve()
 
             if not path.exists():
                 raise FileNotFoundError(f"Directory not found: {directory}")
 
-            if recursive:
-                files = [str(p.relative_to(path)) for p in path.rglob(pattern) if p.is_file()]
-            else:
-                files = [str(p.relative_to(path)) for p in path.glob(pattern) if p.is_file()]
+            # Default exclusions (common bloat directories and files)
+            default_exclusions = [
+                'node_modules', '.git', '__pycache__', '.pytest_cache',
+                '.venv', 'venv', 'env', '.env',
+                'dist', 'build', '.next', '.nuxt', '.output',
+                'coverage', '.coverage', 'htmlcov',
+                '.DS_Store', '*.pyc', '*.pyo', '*.pyd',
+                '.egg-info', '*.egg-info',
+                '.tox', '.mypy_cache', '.ruff_cache',
+                'target',  # Rust
+                'bin', 'obj',  # C#
+            ]
 
-            return sorted(files)
+            # Use provided exclusions or defaults
+            exclusions = exclude_patterns if exclude_patterns is not None else default_exclusions
+
+            # Parse .gitignore if it exists and respect_gitignore is True
+            gitignore_spec = None
+            if respect_gitignore:
+                gitignore_path = path / '.gitignore'
+                if gitignore_path.exists():
+                    try:
+                        import pathspec
+                        with open(gitignore_path, 'r') as f:
+                            gitignore_spec = pathspec.PathSpec.from_lines('gitwildmatch', f)
+                    except ImportError:
+                        logger.warning("pathspec library not installed, .gitignore will be ignored. Install with: pip install pathspec")
+                    except Exception as e:
+                        logger.warning(f"Failed to parse .gitignore: {e}")
+
+            def should_exclude(p: Path) -> bool:
+                """Check if path should be excluded based on patterns and .gitignore"""
+                relative_path = str(p.relative_to(path))
+
+                # Check .gitignore
+                if gitignore_spec and gitignore_spec.match_file(relative_path):
+                    return True
+
+                # Check exclusion patterns
+                for excl in exclusions:
+                    # Check if any part of the path matches exclusion
+                    parts = relative_path.split(os.sep)
+                    for part in parts:
+                        if excl.startswith('*'):
+                            # Wildcard pattern
+                            if part.endswith(excl[1:]):
+                                return True
+                        elif part == excl or relative_path == excl:
+                            return True
+
+                return False
+
+            # Collect matching paths
+            if recursive:
+                all_paths = path.rglob(pattern)
+            else:
+                all_paths = path.glob(pattern)
+
+            # Filter based on criteria
+            results = []
+            for p in all_paths:
+                # Skip if excluded
+                if should_exclude(p):
+                    continue
+
+                # Include files always, dirs only if include_dirs=True
+                if p.is_file() or (include_dirs and p.is_dir()):
+                    results.append(str(p.relative_to(path)))
+
+            return sorted(results)
     except Exception as e:
         raise Exception(f"Error listing files in {directory}: {str(e)}")
 
