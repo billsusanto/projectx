@@ -16,6 +16,13 @@ class PartKind(str, Enum):
     SYSTEM_PROMPT = "system-prompt"
 
 
+class ToolStatus(str, Enum):
+    """Status of tool execution."""
+    SUCCESS = "success"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
 class MessagePartBase(BaseModel):
     """Base model for message parts."""
     part_kind: PartKind
@@ -32,6 +39,8 @@ class MessagePartBase(BaseModel):
     args: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
     timestamp: Optional[str] = None
+    status: Optional[ToolStatus] = None
+    error_message: Optional[str] = None
 
 
 class NodeData(BaseModel):
@@ -114,6 +123,8 @@ class ToolCompleteMessage(BaseModel):
     tool_name: str
     result: Any
     conversation_id: int
+    status: ToolStatus = ToolStatus.SUCCESS  # Tool execution status
+    error_message: Optional[str] = None  # Detailed error message if status is ERROR
 
 
 class ErrorMessage(BaseModel):
