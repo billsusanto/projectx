@@ -8,6 +8,7 @@ export type MessageRole = components['schemas']['MessageRoleEnum'];
 // Export WebSocket message types from OpenAPI schema
 export type MessagePartBase = components['schemas']['MessagePartBase'];
 export type PartKind = components['schemas']['PartKind'];
+export type ToolStatus = components['schemas']['ToolStatus'];
 export type NodeData = components['schemas']['NodeData'];
 export type ConversationCreatedMessage = components['schemas']['ConversationCreatedMessage'];
 export type MessageMessage = components['schemas']['MessageMessage'];
