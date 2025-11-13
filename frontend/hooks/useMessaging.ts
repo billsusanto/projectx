@@ -252,6 +252,8 @@ export function useMessaging(): UseMessagingReturn {
                 tool_name: data.tool_name,
                 tool_call_id: toolCall?.tool_call_id || `${data.tool_name}-return`,
                 content: typeof data.result === 'string' ? data.result : JSON.stringify(data.result),
+                status: data.status || 'success',
+                error_message: data.error_message,
               };
 
               updated[existingIndex] = {
